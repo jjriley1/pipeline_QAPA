@@ -1,0 +1,23 @@
+############################################################################################
+##### design.tsv file must be formatted with no header and starting from first line. 
+############################################################################################
+
+				## In this setting, the pipeline would compare APA
+day0	CM-*-D0-*		## between day0 and day15. I.e. any file with D0
+day15	CM-*-D15-*		## or D15 in its name at this position will have its
+				## quantification and qapa outputs grouped and compared.
+
+
+day0	CM-*-D0-*		##
+day1	CM-*-D1-*		##
+day2	CM-*-D2-*		## In this setting, the final output will contain 6 groups
+day3	CM-*-D3-*		## representing day 0 through 5. Later updates to the 
+day4	CM-*-D4-*		## pipeline will allow linear / random forest regression. 
+day5	CM-*-D5-*		##
+
+
+
+############################################################################################
+# IMPORTANT: THE CHARACTERS USED HERE E.G. "hESC" MUST MATCH EXACTLE (INCLUDING CASE) THOSE
+#	     IN THE FILE NAMES AS INPUT, ELSE THE REGEX WILL NOT WORK.
+############################################################################################

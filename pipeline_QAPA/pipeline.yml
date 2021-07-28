@@ -1,0 +1,83 @@
+#########################################################################
+#        _            _ _                 ____            _____         #
+#       (_)          | (_)               / __ \     /\   |  __ \ /\     #
+#  _ __  _ _ __   ___| |_ _ __   ___    | |  | |   /  \  | |__) /  \    #
+# | '_ \| | '_ \ / _ \ | | '_ \ / _ \   | |  | |  / /\ \ |  ___/ /\ \   #
+# | |_) | | |_) |  __/ | | | | |  __/   | |__| | / ____ \| |  / ____ \  #
+# | .__/|_| .__/ \___|_|_|_| |_|\___|    \___\_\/_/    \_\_| /_/    \_\ #
+# | |     | |                       ______                              #
+# |_|     |_|                      |______|                             #
+#                                                                       #
+#########################################################################
+
+# the genome to use (UCSC convention)
+genome: hg38_noalt
+
+database:
+    name: <shared_location>/DTUtrons/dtu_db
+    url: sqlite:////<shared_location>/dtu_db
+
+###############################################################
+# Location of annotation database
+###############################################################
+annotations:
+    database: /shared/sudlab1/General/annotations/hg38_noalt_ensembl85/csvdb
+
+    # directory with annotation information
+    dir: /shared/sudlab1/General/annotations/hg38_noalt_ensembl85
+
+
+###############################################################
+# Stringtie configuration
+###############################################################
+
+stringtie:
+    #options for assembling with stringtie
+    threads: 4
+    options: -f 0.05
+    memory: 12G
+
+    merge_threads: 4
+    merge_memory: 12G
+    merge_options: -F 0 -T 1
+    groups: []
+
+    #options for quantifying with stringtie
+    quant_threads: 2
+    quant_memory: 6G
+    quant_options: ''
+
+gtf2table:
+    classifier: classifier-rnaseq-splicing
+
+###############################################################
+# Portcullis configuration
+###############################################################
+
+portcullis:
+    #Fasta reference 
+    fastaref: /shared/sudlab1/General/mirror/genomes/plain/hg38.fasta
+    # Reference of junctions in BED format
+    bedref: /shared/sudlab1/General/Data/projects/utrons/GRCh38_gencode28_annotation.bed
+
+    orientation: FR  
+  
+###############################################################
+# Salmon configuration
+###############################################################
+
+salmon:
+    # Options for building the salmon index
+    indexoptions: -k 31
+    # Options for quantifying samples
+    quantoptions: --validateMappings --rangeFactorizationBins 4
+
+###############################################################
+# DTU configuration
+###############################################################
+
+qapa:
+    # Location of design.tsv. This file will contain a list of the conditions
+    # that will be compared alongside a regex to group the files by. 
+    # Example design.tsv can be found in the pipeline_QAPA subfolder.
+    design_tsv_loc: <shared_location>/QAPA/design.tsv
