@@ -293,7 +293,7 @@ def makeSalmonIndex(infile, outfile):
 
 @follows(mkdir("QAPA/quantification.dir"), mkdir("sorted_bams"),
          makeSalmonIndex)
-@transform("input_assemble.dir/*.bam", regex("(.+)/(.+).bam"), output=r"../QAPA/\2/quant.sf")
+@transform("input_assemble.dir/*.bam", regex("(.+)/(.+).bam"), output=r"../QAPA/quantification/\2/quant.sf")
 def quantifyWithSalmon(infile, outfile):
     '''Quantify existing samples against genesets'''
     job_threads=2
@@ -327,13 +327,21 @@ def quantifyWithSalmon(infile, outfile):
                             -2 %(fastq2)s
                             -o %(outfile)s
                     fi; 
-                    mv %(outfile)s/quant.sf; 
                     rm %(fastq1)s; rm %(fastq2)s; rm %(fastq0)s; rm %(sorted_bam)s 
                     '''
     P.run(statement)
 
-#def quant3UTRusage():
+@follows(quantifyWithSalmon, mkdir("QAPA/outputs"))
+def quant3UTRusage(infiles, outfile):
+    '''Combines quantifications and computes relative proportions for each'''
+    
+    job_memory="64G"
+    job_threads=2
 
+    statement = ''' qapa quant --db QAPA/prereqs/ensembl_identifiers.txt
+                        QAPA/quantification/*/quant.sf >
+                        pau_results.txt
+                    '''
 
 #def compareQAPA():
 
