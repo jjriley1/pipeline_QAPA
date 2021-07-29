@@ -16,10 +16,6 @@
 ###############################################################
 genome: hg38_noalt
 
-database:
-    name: <shared_location>/DTUtrons/dtu_db
-    url: sqlite:////<shared_location>/dtu_db
-
 
 ###############################################################
 # Location of annotation database
