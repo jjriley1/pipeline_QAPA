@@ -81,3 +81,14 @@ qapa:
     # that will be compared alongside a regex to group the files by. 
     # Example design.tsv can be found in the pipeline_QAPA subfolder.
     design_tsv_loc: <shared_location>/QAPA/design.tsv
+    #ensembl mart for reference, e.g. hg38release85 is ensembl_mart_85. See https://github.com/morrislab/qapa 
+    ensembl_mart_assembly_version: ensembl_mart_85
+    ensembl_mart_species: hsapiens_gene_ensembl__transcript__main
+    #gencode gene prediction annotation table
+    gencode_pred_table: wgEncodeGencodeBasicV38
+    gencode_assembly: hg38
+    #polyAsite database
+    pas_db_href: https://polyasite.unibas.ch/download/atlas/2.0/GRCh38.96/atlas.clusters.2.0.GRCh38.96.bed.gz
+    pas_db_name: atlas.clusters.2.0.GRCh38.96.bed.gz
+    #gencode polyA site track
+    gencode_polyA_track: wgEncodeGencodePolyaV38
