@@ -82,7 +82,7 @@ Packages required:
     - stringtie
     - portcullis
     - salmon >v1.0 Selective Alignment update
-    - qapa =v1.3.1 (or newer if still compatible)
+    - qapa =v1.3.1 (or newer if still compatible) --> https://github.com/morrislab/qapa
 
 These packages are installed in the conda environment "qapa-env".
 R packages for final analysis/reports are installed in "qapa-env-R". 
@@ -316,6 +316,7 @@ def export():
            formatter(),
            "salmon_index/{basename[0]}.salmon.index")
 def makeSalmonIndex(infile,outfile):
+    '''Create decoy-aware transcriptome index'''
     job_memory="64G"
     job_threads=1
 
@@ -441,3 +442,115 @@ def CSVDBfiles():
 ########################
 ##### QAPA scripts #####
 ########################
+    
+
+@follows(mkdir("QAPA", "QAPA/prereqs"))
+@originate("QAPA/prereqs/ensembl_identifiers.txt")
+def downloadEnsemblMetadata(outfile):
+    '''Download Ensembl gene metadata table via MySQL'''
+
+    ensembl_mart_assembly_version = PARAMS["qapa_ensembl_mart_assembly_version"]
+    ensembl_mart_species = PARAMS["qapa_ensembl_mart_species"]
+
+    statement = ''' mysql --user=anonymous 
+                        --host=martdb.ensembl.org 
+                        --port=5316
+                        -A %(ensembl_mart_assembly_version)s
+                        -e "select stable_id_1023 as 'Gene stable ID',
+                        stable_id_1066 as 'Transcript stable ID',
+                        biotype_1020 as 'Gene type',
+                        biotype_1064 as 'Transcript type',
+                        display_label_1074 as 'Gene name'
+                        from %(ensembl_mart_species)s"
+                        > %(outfile)s;
+                    '''
+
+    P.run(statement, job_condaenv="qapa-env")
+
+
+@follows(mkdir("QAPA", "QAPA/prereqs"))
+@originate("QAPA/prereqs/gencode.basic.txt")
+def downloadGencodeAnnotation(outfile):
+    '''Download GENCODE gene prediction annotation table via MySQL'''
+
+    gencode_gpat = PARAMS["qapa_gencode_pred_table"]
+    gencode_assembly = PARAMS["qapa_gencode_assembly"]
+
+    statement = ''' mysql --user=genome 
+                        --host=genome-mysql.cse.ucsc.edu 
+                        -A
+                        -e "select * from %(gencode_gpat)s" 
+                        %(gencode_assembly)s
+                        > %(outfile)s;
+                    '''
+
+    P.run(statement, job_condaenv="qapa-env")
+
+
+@follows(mkdir("QAPA", "QAPA/prereqs"))
+@originate("QAPA/prereqs/pas_db.bed")
+def downloadPASdb(outfile):
+    '''Download PolyA site database'''
+
+    pas_db_href = PARAMS["qapa_pas_db_href"]
+    pas_db_name = PARAMS["qapa_pas_db_name"]
+    unzipped_pas_db_name = pas_db_name[:-3]
+
+    statement = ''' wget %(pas_db_href)s;
+                    gzip -d %(pas_db_name)s;
+                    mv %(unzipped_pas_db_name)s %(outfile)s;
+                    '''
+
+    P.run(statement, job_condaenv="qapa-env")
+
+
+@follows(mkdir("QAPA", "QAPA/prereqs"))
+@originate("QAPA/prereqs/gencode.polyA_sites.bed")
+def downloadGencodePolyA(outfile):
+    '''Download GENCODE polyA sites track'''
+
+    gencode_polyA = PARAMS["qapa_gencode_polyA_track"]
+    gencode_assembly = PARAMS["qapa_gencode_assembly"]
+
+    statement = ''' mysql --user=genome 
+                        --host=genome-mysql.cse.ucsc.edu 
+                        -A
+                        -e "select chrom, txStart, txEnd,
+                        name2, score, strand from
+                        %(gencode_polyA)s where name2 = 'polyA_site'"
+                        -N %(gencode_assembly)s
+                        > %(outfile)s;
+                    '''
+
+    P.run(statement, job_condaenv="qapa-env")
+
+
+@follows(downloadEnsemblMetadata, downloadGencodeAnnotation, downloadPASdb, downloadGencodePolyA)
+def downloadQAPAprereqs():
+    pass
+
+
+#def build3UTRlib():
+
+
+#def extract3UTRseq():
+
+
+#def quant3UTRusage():
+
+
+#def compareQAPA():
+
+
+##################
+###### misc ######
+##################
+
+def main(argv=None):
+    if argv is None:
+        argv = sys.argv
+    P.main(argv)
+
+
+if __name__ == "__main__":
+    sys.exit(P.main(sys.argv))
