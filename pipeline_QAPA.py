@@ -530,8 +530,28 @@ def downloadQAPAprereqs():
     pass
 
 
-#def build3UTRlib():
+@follows(downloadQAPAprereqs)
+@merge([downloadEnsemblMetadata,
+        downloadGencodePolyA,
+        downloadPASdb,
+        downloadGencodeAnnotation],
+        "QAPA/utr_lib.bed")
+def build3UTRlib(infiles, outfile):
+    '''Build 3'UTR library from prerequisites'''
 
+    ensembl_metadata, gencode_polyA, PASdb, gencode_annotation = infiles
+
+    job_threads=2
+    job_memory="32G"
+
+    statement = ''' qapa build --db %(ensembl_metadata)s
+                        -g %(gencode_polyA)s
+                        -p %(PASdb)s
+                        %(gencode_annotation)s >
+                        %(outfile)s
+                    '''
+
+    P.run(statement, job_condaenv="qapa-env", job_threads=job_threads, job_memory=job_memory)
 
 #def extract3UTRseq():
 
