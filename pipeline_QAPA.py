@@ -341,7 +341,7 @@ def quant3UTRusage():
 
     statement = ''' qapa quant --db QAPA/prereqs/ensembl_identifiers.txt
                         QAPA/quantification/*/quant.sf >
-                        pau_results.txt
+                        QAPA/outputs/pau_results.txt
                     '''
 
     P.run(statement, job_condaenv="qapa-env", job_threads=job_threads, job_memory=job_memory)
