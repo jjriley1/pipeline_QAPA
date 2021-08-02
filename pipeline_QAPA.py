@@ -293,7 +293,7 @@ def makeSalmonIndex(infile, outfile):
 
 @follows(mkdir("QAPA/quantification.dir"), mkdir("sorted_bams"),
          makeSalmonIndex)
-@transform("input_assemble.dir/*.bam", regex("(.+)/(.+).bam"), output=r"../QAPA/quantification/\2/quant.sf")
+@transform("input_assemble.dir/*.bam", regex("(.+)/(.+).bam"), output=r"QAPA/quantification/\2/quant.sf")
 def quantifyWithSalmon(infile, outfile):
     '''Quantify existing samples against genesets'''
     job_threads=2
@@ -307,6 +307,7 @@ def quantifyWithSalmon(infile, outfile):
     fastq1 = P.snip(outfile, "/quant.sf")+".1.fastq"
     fastq2 = P.snip(outfile, "/quant.sf")+".2.fastq"
     fastq0 = P.snip(outfile, "/quant.sf")+".0.fastq"
+    outfile = P.snip(outfile, "/quant.sf")
 
     statement = ''' samtools sort -n %(infile)s -o %(sorted_bam)s;
                     samtools fastq
@@ -319,17 +320,17 @@ def quantifyWithSalmon(infile, outfile):
                         salmon quant -i %(salmonIndex)s
                             --libType IU
                             -r %(fastq0)s
-                            -o %(outfile)s
+                            -o %(outfile)s;
                     else
                         salmon quant -i %(salmonIndex)s
                             --libType IU
                             -1 %(fastq1)s
                             -2 %(fastq2)s
-                            -o %(outfile)s
+                            -o %(outfile)s;
                     fi; 
                     rm %(fastq1)s; rm %(fastq2)s; rm %(fastq0)s; rm %(sorted_bam)s 
                     '''
-    P.run(statement)
+    P.run(statement, job_condaenv="qapa-env", job_memory=job_memory, job_threads=job_threads)
 
 @follows(quantifyWithSalmon, mkdir("QAPA/outputs"))
 def quant3UTRusage():
@@ -343,7 +344,9 @@ def quant3UTRusage():
                         pau_results.txt
                     '''
 
+#@follows(quant3UTRusage)
 #def compareQAPA():
+#    '''Compares outputs of QAPA based on design.tsv input'''
 
 
 ###################
