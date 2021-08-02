@@ -332,7 +332,7 @@ def quantifyWithSalmon(infile, outfile):
     P.run(statement)
 
 @follows(quantifyWithSalmon, mkdir("QAPA/outputs"))
-def quant3UTRusage(infiles, outfile):
+def quant3UTRusage():
     '''Combines quantifications and computes relative proportions for each'''
     
     job_memory="64G"
@@ -345,6 +345,14 @@ def quant3UTRusage(infiles, outfile):
 
 #def compareQAPA():
 
+
+###################
+##### utility #####
+###################
+
+@follows(downloadQAPAprereqs, build3UTRlib, extract3UTRseq, makeSalmonIndex, quantifyWithSalmon, quant3UTRusage)
+def full():
+    pass
 
 ##################
 ###### misc ######
