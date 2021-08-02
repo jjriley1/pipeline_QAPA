@@ -291,7 +291,7 @@ def makeSalmonIndex(infile, outfile):
 ##### quantification #####
 ##########################
 
-@follows(mkdir("QAPA/quantification.dir"), mkdir("sorted_bams"),
+@follows(mkdir("QAPA/quantification"), mkdir("sorted_bams"),
          makeSalmonIndex)
 @transform("input_assemble.dir/*.bam", regex("(.+)/(.+).bam"), output=r"QAPA/quantification/\2/quant.sf")
 def quantifyWithSalmon(infile, outfile):
@@ -335,16 +335,9 @@ def quantifyWithSalmon(infile, outfile):
 @follows(quantifyWithSalmon, mkdir("QAPA/outputs"))
 def quant3UTRusage():
     '''Combines quantifications and computes relative proportions for each'''
-    
-    job_memory="64G"
-    job_threads=2
 
-    statement = ''' qapa quant --db QAPA/prereqs/ensembl_identifiers.txt
-                        QAPA/quantification/*/quant.sf >
-                        QAPA/outputs/pau_results.txt
-                    '''
-
-    P.run(statement, job_condaenv="qapa-env", job_threads=job_threads, job_memory=job_memory)
+    statement = "qapa quant --db QAPA/prereqs/ensembl_identifiers.txt QAPA/quantification/*/quant.sf > QAPA/outputs/pau_results.txt"
+    os.system(statement)
 
 #@follows(quant3UTRusage)
 #def compareQAPA():
