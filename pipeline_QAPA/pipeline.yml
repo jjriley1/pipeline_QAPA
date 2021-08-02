@@ -15,7 +15,7 @@
 # the genome to use (UCSC convention)
 ###############################################################
 genome_dir: /shared/sudlab1/General/mirror/genomes/plain
-genome: hg38_noalt
+genome: hg38_noalt.fasta
 
 
 
