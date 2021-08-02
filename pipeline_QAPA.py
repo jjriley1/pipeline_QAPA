@@ -344,6 +344,8 @@ def quant3UTRusage():
                         pau_results.txt
                     '''
 
+    P.run(statement, job_condaenv="qapa-env", job_threads=job_threads, job_memory=job_memory)
+
 #@follows(quant3UTRusage)
 #def compareQAPA():
 #    '''Compares outputs of QAPA based on design.tsv input'''
