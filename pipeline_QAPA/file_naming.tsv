@@ -1,0 +1,15 @@
+############################################################################################
+##### file_naming.tsv file must be formatted with no header and starting from first line. 
+############################################################################################
+
+day0	CM-*-D0-*		##
+day1	CM-*-D1-*		##
+day2	CM-*-D2-*		## This file should contain the group name, tab, and then a regex
+day3	CM-*-D3-*		## to group the files into a vector
+day4	CM-*-D4-*		## 
+day5	CM-*-D5-*		##
+
+############################################################################################
+# IMPORTANT: THE CHARACTERS USED HERE E.G. "hESC" MUST MATCH EXACTLE (INCLUDING CASE) THOSE
+#	     IN THE FILE NAMES AS INPUT, ELSE THE REGEX WILL NOT WORK.
+############################################################################################
