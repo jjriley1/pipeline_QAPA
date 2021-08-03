@@ -339,6 +339,41 @@ def quant3UTRusage():
     statement = "qapa quant --db QAPA/prereqs/ensembl_identifiers.txt QAPA/quantification/*/quant.sf > QAPA/outputs/pau_results.txt"
     os.system(statement)
 
+#################################################
+# Comparing QAPA outputs based on design matrix #
+#################################################
+
+@follows(quant3UTRusage)
+@transform("design.tsv", suffix("design.tsv"), "QAPA/outputs/comparisons_to_make.txt") 
+def analyseDesignMatrix(infile, outfile):
+    infile = open(infile)
+    design = csv.reader(infile, delimiter="\t")
+    outfile = open(outfile, "w")
+    current_file = __file__ 
+    pipeline_path = os.path.abspath(current_file)
+    pipeline_directory = os.path.dirname(pipeline_path)
+    script_path = "pipeline_QAPA/"
+    Rmd_path = os.path.join(pipeline_directory, script_path)
+    to_cluster=False
+
+
+    for row in design:
+        variables = len(row) - 1 
+        if(variables == 1):
+            folder_name = str(row[0] + "_vs_" + str(row[1]))
+            info = "~var1"
+            outfile.write(folder_name + "\n")
+            statement = (""" mkdir QAPA/outputs/""" + folder_name + """ && cp """ + Rmd_path + 
+                         """compare_QAPA_outputs.Rmd QAPA/outputs/""" + folder_name + """/compare_""" + 
+                         folder_name + """.Rmd""")
+            os.system(statement)
+
+        else:
+            raise valueError("design.tsv is not configured correctly, see pipeline_QAPA/example_design.tsv for setup")
+
+    infile.close
+    outfile.close()
+
 #@follows(quant3UTRusage)
 #def compareQAPA():
 #    '''Compares outputs of QAPA based on design.tsv input'''
@@ -348,7 +383,8 @@ def quant3UTRusage():
 ##### utility #####
 ###################
 
-@follows(downloadQAPAprereqs, build3UTRlib, extract3UTRseq, makeSalmonIndex, quantifyWithSalmon, quant3UTRusage)
+@follows(downloadQAPAprereqs, build3UTRlib, extract3UTRseq, makeSalmonIndex, 
+        quantifyWithSalmon, quant3UTRusage, analyseDesignMatrix)
 def full():
     pass
 
