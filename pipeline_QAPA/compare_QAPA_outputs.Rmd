@@ -135,7 +135,7 @@ summary_df = left_join(summary_df, condition1_pau_summary, by="APA_ID") %>%
 
 Histogram to depict the number of possible APA events per gene
 
-```{r}
+```{r histogram1}
 ggplot(summary_df, aes(x=Num_Events)) + geom_histogram(binwidth=1, color="darkblue", fill="lightblue") + 
   labs(title="Possible APA events based on reference",
          y="Number of genes",
@@ -144,13 +144,13 @@ ggplot(summary_df, aes(x=Num_Events)) + geom_histogram(binwidth=1, color="darkbl
 
 Filter for those with TPM>1 (in at least 1 condition), and PAU>0 (in both conditions)
 
-```{r}
+```{r filter_expressed}
 filtered_summary_df = summary_df %>% filter(.[[13]]>0 & .[[16]]>0 & (.[[19]]>1 | .[[21]]>1))
 ```
 
 Update the "Num_Events" column to take into account those dropped
 
-```{r}
+```{r update_num_events}
 count_events = filtered_summary_df %>% group_by(Gene_Name) %>% summarize(new_count=n())
 filtered_summary_df = left_join(filtered_summary_df, count_events, by="Gene_Name") %>%
   mutate(Num_Events = new_count) %>%
@@ -160,7 +160,7 @@ filtered_summary_df = left_join(filtered_summary_df, count_events, by="Gene_Name
 
 Histogram to depict the APA events of expressed transcripts (TPM>1)
 
-```{r}
+```{r histogram2}
 ggplot(filtered_summary_df, aes(x=Num_Events)) + geom_histogram(binwidth=1, color="darkblue", fill="lightblue") + 
   labs(title="Number of APA events",
        subtitle="Based on expressed transcripts (TPM>1)",
@@ -211,7 +211,7 @@ filtered_summary_df = filtered_summary_df %>% mutate(diff_PAU_effectsize = abs(.
 
 Now filter this for significance (based on p and q)
 
-```{r}
+```{r filter_significance}
 significant_APA = filtered_summary_df %>% filter(diff_PAU_pval<0.05 & diff_PAU_qval<0.05)
 ```
 
@@ -219,7 +219,7 @@ We also want to filter by effect size.
 
 But before doing that, we can visualize how many significant differential APA events have occurred, and by what magnitude
 
-```{r}
+```{r threshold_graph}
 bins = seq(0,95, by=5)
 meet_threshold = list()
 
@@ -244,7 +244,7 @@ ggplot(df, aes(x=threshold, y=met)) + geom_col(colour="darkblue", fill="lightblu
 
 Can also visualize the effect sizes as a histogram instead of based on thresholds
 
-```{r}
+```{r histogram3}
 ggplot(significant_APA, aes(x=diff_PAU_effectsize)) + geom_histogram(binwidth=10,color="darkblue", fill="lightblue") + 
   labs(title="Effect size distribution",
        subtitle="Based on expressed transcripts (TPM>1) with significant differential APA (P<0.05, q<0.05)",
@@ -254,7 +254,7 @@ ggplot(significant_APA, aes(x=diff_PAU_effectsize)) + geom_histogram(binwidth=10
 ```
 Before filtering on effect size, how many genes does this correspond to?
 
-```{r}
+```{r histogram4}
 num_of_events_per_gene = significant_APA %>% group_by(Gene) %>% summarize(Gene_Name=Gene_Name, sig_events=n())
 
 ggplot(num_of_events_per_gene, aes(x=sig_events)) + geom_histogram(binwidth=1,color="darkblue", fill="lightblue") + 
@@ -266,13 +266,13 @@ ggplot(num_of_events_per_gene, aes(x=sig_events)) + geom_histogram(binwidth=1,co
 ```
 Other statistics:
 
-```{r}
+```{r other_summary_stats}
 other_stats = significant_APA %>% summarize(average_abs_effect_size = median(diff_PAU_effectsize), 
                                             average_abs_TPM_change = median(abs(.[[19]]-.[[21]])))
 other_stats
 ```
 
-```{r}
+```{r export_raw_sig_DAPA}
 file_name = paste0(comparison[1], "_vs_", comparison[2], "_sig_dif_APA.csv")
 export_sig_APA = significant_APA[,c(-15,-18)]
 write.csv(export_sig_APA, file = file_name)
