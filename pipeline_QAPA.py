@@ -374,9 +374,9 @@ def analyseDesignMatrix(infile, outfile):
     infile.close
     outfile.close()
 
-@follows(quant3UTRusage)
-@transform("QAPA/outputs/*/compare_(.+).Rmd", suffix(".Rmd"),, ".html")
-def run_compareQAPA_script():
+@follows(analyseDesignMatrix)
+@transform("QAPA/outputs/*/compare_*.Rmd", suffix(".Rmd"), ".html")
+def run_compareQAPA_script(infile, outfile):
     '''Compares outputs of QAPA based on design.tsv input'''
     job_threads = 2
     job_memory = "16G"
@@ -390,7 +390,8 @@ def run_compareQAPA_script():
 ###################
 
 @follows(downloadQAPAprereqs, build3UTRlib, extract3UTRseq, makeSalmonIndex, 
-        quantifyWithSalmon, quant3UTRusage, analyseDesignMatrix)
+        quantifyWithSalmon, quant3UTRusage, analyseDesignMatrix,
+        run_compareQAPA_script)
 def full():
     pass
 
