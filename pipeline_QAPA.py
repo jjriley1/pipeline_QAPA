@@ -382,7 +382,7 @@ def run_compareQAPA_script():
     job_memory = "16G"
 
     statement = "Rscript -e 'rmarkdown::render(\"%(infile)s\")'"
-    P.run(statement, job_condaenv="qapa-r", job_memory=job_memory)
+    P.run(statement, job_condaenv="R-rstudio", job_memory=job_memory)
 
 
 ###################
