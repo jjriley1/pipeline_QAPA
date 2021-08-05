@@ -374,9 +374,15 @@ def analyseDesignMatrix(infile, outfile):
     infile.close
     outfile.close()
 
-#@follows(quant3UTRusage)
-#def compareQAPA():
-#    '''Compares outputs of QAPA based on design.tsv input'''
+@follows(quant3UTRusage)
+@transform("QAPA/outputs/*/compare_(.+).Rmd", suffix(".Rmd"),, ".html")
+def run_compareQAPA_script():
+    '''Compares outputs of QAPA based on design.tsv input'''
+    job_threads = 2
+    job_memory = "16G"
+
+    statement = "Rscript -e 'rmarkdown::render(\"%(infile)s\")'"
+    P.run(statement, job_condaenv="qapa-r", job_memory=job_memory)
 
 
 ###################
