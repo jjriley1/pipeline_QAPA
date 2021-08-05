@@ -1,0 +1,279 @@
+---
+title: "compare_QAPA_outputs"
+output: html_notebook
+---
+
+Markdown setup and load libraries
+
+```{r setup, warning=FALSE}
+library(dplyr)
+library(data.table)
+library(stringr)
+library(tidyr)
+library(ggplot2)
+library(qvalue)
+```
+
+Load QAPA output
+
+```{r load_qapa_output}
+qapa_output = fread("../pau_results.txt")
+qapa_output = qapa_output %>% replace(is.na(.), 0)
+```
+
+Find the comparison we are currently doing
+
+```{r get_comparison}
+comparison = as.character(str_split(basename(getwd()), "_vs_")[[1]])
+```
+
+Link this to the file names (from file_naming.tsv)
+
+```{r link_file_names}
+file_namings = fread("../../../file_naming.tsv", header=F)
+
+file_namings = file_namings %>% filter(V1 %in% comparison)
+condition1_files = list.files("../../quantification", pattern=as.character(file_namings[1,2]))
+condition2_files = list.files("../../quantification", pattern=as.character(file_namings[2,2]))
+
+condition1_filenames = sapply(condition1_files, function(x) substr(x, 0, nchar(x)-5)) %>% unname()
+condition2_filenames = sapply(condition2_files, function(x) substr(x, 0, nchar(x)-5)) %>% unname()
+```
+
+Filter qapa_output columns by those relevant to this comparison
+N.b. we want to keep the first 12 columns so set these to true after
+
+```{r filter_comparison_columns}
+column_filter = grepl(paste0(paste0(condition1_filenames, collapse="|"),"|",paste0(condition2_filenames, collapse="|")), colnames(qapa_output))
+column_filter[1:12]=TRUE
+qapa_output = as.data.frame(qapa_output)
+qapa_output = qapa_output[,column_filter]
+```
+
+Extract condition-condition specific columns into 2 separate DFs. Further split this into TPM and PAU DFs.
+
+```{r split_df}
+condition1_cols = qapa_output[,grepl(paste0("APA_ID", "|", paste0(condition1_filenames, collapse="|")), colnames(qapa_output))]
+condition2_cols = qapa_output[,grepl(paste0("APA_ID", "|", paste0(condition2_filenames, collapse="|")), colnames(qapa_output))]
+
+condition1_tpm = condition1_cols[,grepl(paste0("APA_ID", "|",paste0("TPM")), colnames(condition1_cols))]
+condition1_pau = condition1_cols[,grepl(paste0("APA_ID", "|",paste0("PAU")), colnames(condition1_cols))]
+  
+condition2_tpm = condition2_cols[,grepl(paste0("APA_ID", "|",paste0("TPM")), colnames(condition2_cols))]
+condition2_pau = condition2_cols[,grepl(paste0("APA_ID", "|",paste0("PAU")), colnames(condition2_cols))]
+```
+
+Summary statistics on all of these. Also save a list of the raw PAU values so we can do a t-test later.
+
+```{r tpm_pau_summary_stats}
+#get the position of the last column with quant info in it
+info_cols = dim(condition1_tpm)[2]
+#rowwise summary of column values
+condition1_tpm_summary = condition1_tpm %>% rowwise() %>%
+  transmute(APA_ID=APA_ID, 
+            median=median(c_across(2:info_cols)), 
+            mean=mean(c_across(2:info_cols)))
+#rename the file_names to remove replicate number
+condition1_name = sapply(condition1_filenames, function(x) substr(x, 0, nchar(x)-4)) %>% unname() %>% unique()
+#create vector for column headers, using the group name
+col_names = c("APA_ID", 
+              paste0(condition1_name, "_medianTPM"), 
+              paste0(condition1_name, "_meanTPM"))
+colnames(condition1_tpm_summary) = col_names
+
+### REPEAT THIS FOR THE OTHER 3 DFs
+#condition1_PAU
+info_cols = dim(condition1_pau)[2]
+condition1_pau_summary = condition1_pau %>% rowwise() %>%
+  transmute(APA_ID=APA_ID, 
+            median=median(c_across(2:info_cols)), 
+            mean=mean(c_across(2:info_cols)), 
+            raw_list=list(c_across(2:info_cols)))
+condition1_name = sapply(condition1_filenames, function(x) substr(x, 0, nchar(x)-4)) %>% unname() %>% unique()
+col_names = c("APA_ID", 
+              paste0(condition1_name, "_medianPAU"), 
+              paste0(condition1_name, "_meanPAU"),
+              paste0(condition1_name, "_rawPAUValues"))
+colnames(condition1_pau_summary) = col_names
+
+#condition2_TPM
+info_cols = dim(condition2_tpm)[2]
+condition2_tpm_summary = condition2_pau %>% rowwise() %>%
+  transmute(APA_ID=APA_ID, 
+            median=median(c_across(2:info_cols)), 
+            mean=mean(c_across(2:info_cols)))
+condition2_name = sapply(condition2_filenames, function(x) substr(x, 0, nchar(x)-4)) %>% unname() %>% unique()
+col_names = c("APA_ID", 
+              paste0(condition2_name, "_medianTPM"), 
+              paste0(condition2_name, "_meanTPM"))
+colnames(condition2_tpm_summary) = col_names
+
+#condition2_PAU
+info_cols = dim(condition2_pau)[2]
+condition2_pau_summary = condition2_pau %>% rowwise() %>%
+  transmute(APA_ID=APA_ID, 
+            median=median(c_across(2:info_cols)), 
+            mean=mean(c_across(2:info_cols)), 
+            raw_list=list(c_across(2:info_cols)))
+condition2_name = sapply(condition2_filenames, function(x) substr(x, 0, nchar(x)-4)) %>% unname() %>% unique()
+col_names = c("APA_ID", 
+              paste0(condition2_name, "_medianPAU"), 
+              paste0(condition2_name, "_meanPAU"),
+              paste0(condition2_name, "_rawPAUValues"))
+colnames(condition2_pau_summary) = col_names
+```
+
+Merge back into dataframe with the original 12 metadata columns
+
+```{r merge_summary_df}
+summary_df = qapa_output[,1:12]
+summary_df = left_join(summary_df, condition1_pau_summary, by="APA_ID") %>%
+  left_join(., condition2_pau_summary, by="APA_ID") %>%
+  left_join(., condition1_tpm_summary, by="APA_ID") %>%
+  left_join(., condition2_tpm_summary, by="APA_ID")
+```
+
+Histogram to depict the number of possible APA events per gene
+
+```{r}
+ggplot(summary_df, aes(x=Num_Events)) + geom_histogram(binwidth=1, color="darkblue", fill="lightblue") + 
+  labs(title="Possible APA events based on reference",
+         y="Number of genes",
+         x="Number of APA events per gene")
+```
+
+Filter for those with TPM>1 (in at least 1 condition), and PAU>0 (in both conditions)
+
+```{r}
+filtered_summary_df = summary_df %>% filter(.[[13]]>0 & .[[16]]>0 & (.[[19]]>1 | .[[21]]>1))
+```
+
+Update the "Num_Events" column to take into account those dropped
+
+```{r}
+count_events = filtered_summary_df %>% group_by(Gene_Name) %>% summarize(new_count=n())
+filtered_summary_df = left_join(filtered_summary_df, count_events, by="Gene_Name") %>%
+  mutate(Num_Events = new_count) %>%
+  select(-new_count)
+```
+
+
+Histogram to depict the APA events of expressed transcripts (TPM>1)
+
+```{r}
+ggplot(filtered_summary_df, aes(x=Num_Events)) + geom_histogram(binwidth=1, color="darkblue", fill="lightblue") + 
+  labs(title="Number of APA events",
+       subtitle="Based on expressed transcripts (TPM>1)",
+         y="Number of transcripts",
+         x="Number of APA events per gene") + 
+  stat_bin(aes(y=..count.., label=ifelse(..count..==0,"",..count..)), geom="text", vjust=-.5) 
+```
+
+In order to determine differential APA, we need to compare the raw value (from raw_list column) data and compare the 2 conditions via a t-test, and get p-values to add to the summary table. We will call these stats diff_PAU (for "differential PolyA site usage"). And we will get a p-value, q-value, and an effect size (diff between medians).
+
+```{r calc_diff_PAU_stats, warning=FALSE, message=FALSE}
+len = nrow(filtered_summary_df)
+i = 1
+
+filtered_summary_df[,23] = 0
+colnames(filtered_summary_df)[23] = "diff_PAU_pval"
+suppressWarnings(
+while(i<=len){
+  condition1_vals = filtered_summary_df[i,15] %>% unlist() %>% unname()
+  condition2_vals = filtered_summary_df[i,18] %>% unlist() %>% unname()
+  
+  #if we try do a t.test on 2 lists which have all values as 100, sd will = 0
+  #and t.test will not be able to resolve division by 0, therefore gives error
+  #therefore we will manually check if all vals are 100, and set P=1 in those
+  
+  if(all(condition1_vals == 100)&(all(condition2_vals == 100))){
+    p_val=1
+  }else{
+  p_val = as.numeric(t.test(condition1_vals, condition2_vals)$p.value)
+  }
+  filtered_summary_df[i,23] = p_val
+  i=i+1
+})
+
+filtered_summary_df[,23] = as.numeric(filtered_summary_df[,23])
+
+#we also need to find q values (adjusted p values) to take into account multiple testing
+pvals = filtered_summary_df$diff_PAU_pval
+qobj = qvalue(p=pvals)
+qvals = qobj$qvalues
+
+filtered_summary_df[,24] = qvals
+colnames(filtered_summary_df)[24]="diff_PAU_qval"
+filtered_summary_df[,24] = as.numeric(filtered_summary_df[,24])
+
+filtered_summary_df = filtered_summary_df %>% mutate(diff_PAU_effectsize = abs(.[[13]] - .[[16]]))
+```
+
+Now filter this for significance (based on p and q)
+
+```{r}
+significant_APA = filtered_summary_df %>% filter(diff_PAU_pval<0.05 & diff_PAU_qval<0.05)
+```
+
+We also want to filter by effect size.
+
+But before doing that, we can visualize how many significant differential APA events have occurred, and by what magnitude
+
+```{r}
+bins = seq(0,95, by=5)
+meet_threshold = list()
+
+for(cutoff in bins){
+  n_meets_threshold = significant_APA %>% 
+    filter(diff_PAU_effectsize>cutoff) %>%
+    nrow()
+  meet_threshold = append(meet_threshold, n_meets_threshold)
+}
+
+df = data.frame(bins, (meet_threshold %>% unlist()))
+colnames(df) = c("threshold", "met")
+
+ggplot(df, aes(x=threshold, y=met)) + geom_col(colour="darkblue", fill="lightblue") + 
+  scale_x_continuous(breaks=seq(0,95,5)) + 
+  geom_text(aes(label=met), position=position_dodge(width=0.9), vjust=-0.25) + 
+  labs(title="Quantification of differential APA events with effect sizes greater than X",
+       subtitle="Based on expressed transcripts (TPM>1)",
+         y="Number of APA events",
+         x="X (Effect size threshold)")
+```
+
+Can also visualize the effect sizes as a histogram instead of based on thresholds
+
+```{r}
+ggplot(significant_APA, aes(x=diff_PAU_effectsize)) + geom_histogram(binwidth=10,color="darkblue", fill="lightblue") + 
+  labs(title="Effect size distribution",
+       subtitle="Based on expressed transcripts (TPM>1) with significant differential APA (P<0.05, q<0.05)",
+         y="Number of APA events",
+         x="Effect size (%)") + 
+  stat_bin(aes(y=..count.., label=ifelse(..count..==0,"",..count..)), geom="text", vjust=-0.5, binwidth=10) 
+```
+Before filtering on effect size, how many genes does this correspond to?
+
+```{r}
+num_of_events_per_gene = significant_APA %>% group_by(Gene) %>% summarize(Gene_Name=Gene_Name, sig_events=n())
+
+ggplot(num_of_events_per_gene, aes(x=sig_events)) + geom_histogram(binwidth=1,color="darkblue", fill="lightblue") + 
+  labs(title="Number of significant differential APA events per gene",
+       subtitle="Based on expressed transcripts (TPM>1) with significant differential APA (P<0.05, q<0.05)",
+         y="Number of genes",
+         x="Number of significant differential APA events") + 
+  stat_bin(aes(y=..count.., label=ifelse(..count..==0,"",..count..)), geom="text", vjust=-0.5, binwidth=1) 
+```
+Other statistics:
+
+```{r}
+other_stats = significant_APA %>% summarize(average_abs_effect_size = median(diff_PAU_effectsize), 
+                                            average_abs_TPM_change = median(abs(.[[19]]-.[[21]])))
+other_stats
+```
+
+```{r}
+file_name = paste0(comparison[1], "_vs_", comparison[2], "_sig_dif_APA.csv")
+export_sig_APA = significant_APA[,c(-15,-18)]
+write.csv(export_sig_APA, file = file_name)
+```
