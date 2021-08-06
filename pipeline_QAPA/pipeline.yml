@@ -48,3 +48,11 @@ qapa:
     pas_db_name: atlas.clusters.2.0.GRCh38.96.bed.gz
     #gencode polyA site track
     gencode_polyA_track: wgEncodeGencodePolyaV38
+
+###############################################################
+# Differential APA comparison R script
+###############################################################
+
+diff_apa:
+    #minimum effect size (delta poly A usage)
+    minimum_effect_size: 0.25
