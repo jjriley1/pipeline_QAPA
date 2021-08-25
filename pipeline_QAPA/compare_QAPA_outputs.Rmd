@@ -1,6 +1,8 @@
 ---
 title: "compare_QAPA_outputs"
-output: html_notebook
+output:
+  html_document:
+    df_print: paged
 ---
 
 Markdown setup and load libraries
@@ -136,16 +138,20 @@ summary_df = left_join(summary_df, condition1_pau_summary, by="APA_ID") %>%
 Histogram to depict the number of possible APA events per gene
 
 ```{r histogram1}
+max_events = summary_df %>% select(Num_Events) %>% unlist() %>% unname() %>% max()
 ggplot(summary_df, aes(x=Num_Events)) + geom_histogram(binwidth=1, color="darkblue", fill="lightblue") + 
   labs(title="Possible APA events based on reference",
          y="Number of genes",
-         x="Number of APA events per gene")
+         x="Number of APA events per gene") + 
+  scale_x_continuous(breaks=seq(1,max_events, by=1))
 ```
 
-Filter for those with TPM>1 (in at least 1 condition), and PAU>0 (in both conditions)
+Filter for those with TPM>1 (in at least 1 condition), and PAU>0 (in at least 1 condition).
+Also filter out those with only 1 APA event as there cannot be differential APA if only 1 possible event. 
 
 ```{r filter_expressed}
-filtered_summary_df = summary_df %>% filter(.[[13]]>0 & .[[16]]>0 & (.[[19]]>1 | .[[21]]>1))
+filtered_summary_df = summary_df %>% filter((.[[13]]>0 | .[[16]]>0) & (.[[19]]>1 | .[[21]]>1)) %>%
+  filter(.[[12]]>1)
 ```
 
 Update the "Num_Events" column to take into account those dropped
@@ -161,13 +167,21 @@ filtered_summary_df = left_join(filtered_summary_df, count_events, by="Gene_Name
 Histogram to depict the APA events of expressed transcripts (TPM>1)
 
 ```{r histogram2}
+max_events = filtered_summary_df %>% select(Num_Events) %>% unlist() %>% unname() %>% max()
 ggplot(filtered_summary_df, aes(x=Num_Events)) + geom_histogram(binwidth=1, color="darkblue", fill="lightblue") + 
   labs(title="Number of APA events",
        subtitle="Based on expressed transcripts (TPM>1)",
          y="Number of transcripts",
          x="Number of APA events per gene") + 
-  stat_bin(aes(y=..count.., label=ifelse(..count..==0,"",..count..)), geom="text", vjust=-.5) 
+  stat_bin(aes(y=..count.., label=ifelse(..count..==0,"",..count..)), geom="text", vjust=-.5) +
+  scale_x_continuous(breaks=seq(1,max_events, by=1))
 ```
+We should also treat those where only 1 APA event is left after filtering for 1TPM as if they were the only event, and therefore differential APA is not possible. Therefore exclude the ``r filtered_summary_df %>% filter(Num_Events==1) %>% nrow()`` results with Num_Events == 1. 
+
+```{r}
+filtered_summary_df = filtered_summary_df %>% filter(Num_Events != 1)
+```
+
 
 In order to determine differential APA, we need to compare the raw value (from raw_list column) data and compare the 2 conditions via a t-test, and get p-values to add to the summary table. We will call these stats diff_PAU (for "differential PolyA site usage"). And we will get a p-value, q-value, and an effect size (diff between medians).
 
@@ -188,8 +202,11 @@ while(i<=len){
   
   if(all(condition1_vals == 100)&(all(condition2_vals == 100))){
     p_val=1
-  }else{
+  }else if((all(condition1_vals == 100)&(all(condition2_vals == 0)))|(all(condition1_vals == 0)&(all(condition2_vals == 100)))){
+    p_val=0
+    }else{
   p_val = as.numeric(t.test(condition1_vals, condition2_vals)$p.value)
+  
   }
   filtered_summary_df[i,23] = p_val
   i=i+1
@@ -220,7 +237,7 @@ We also want to filter by effect size.
 But before doing that, we can visualize how many significant differential APA events have occurred, and by what magnitude
 
 ```{r threshold_graph}
-bins = seq(0,95, by=5)
+bins = seq(0,100, by=5)
 meet_threshold = list()
 
 for(cutoff in bins){
@@ -234,14 +251,14 @@ df = data.frame(bins, (meet_threshold %>% unlist()))
 colnames(df) = c("threshold", "met")
 
 ggplot(df, aes(x=threshold, y=met)) + geom_col(colour="darkblue", fill="lightblue") + 
-  scale_x_continuous(breaks=seq(0,95,5)) + 
+  scale_x_continuous(breaks=seq(0,100,5)) + 
   geom_text(aes(label=met), position=position_dodge(width=0.9), vjust=-0.25) + 
   labs(title="Quantification of differential APA events with effect sizes greater than X",
        subtitle="Based on expressed transcripts (TPM>1)",
          y="Number of APA events",
-         x="X (Effect size threshold)")
+         x="Effect size threshold (X%)")
 ```
-
+ 
 Can also visualize the effect sizes as a histogram instead of based on thresholds
 
 ```{r histogram3}
@@ -250,23 +267,27 @@ ggplot(significant_APA, aes(x=diff_PAU_effectsize)) + geom_histogram(binwidth=10
        subtitle="Based on expressed transcripts (TPM>1) with significant differential APA (P<0.05, q<0.05)",
          y="Number of APA events",
          x="Effect size (%)") + 
-  stat_bin(aes(y=..count.., label=ifelse(..count..==0,"",..count..)), geom="text", vjust=-0.5, binwidth=10) 
+  stat_bin(aes(y=..count.., label=ifelse(..count..==0,"",..count..)), geom="text", vjust=-0.5, binwidth=10) + 
+  scale_x_continuous(breaks=seq(0,90, by=10), labels=c("0-10", "10-20", "20-30", "30-40", "40-50", "50-60", "60-70", "70-80", "80-90", "90-100"))
+  
 ```
+
 Before filtering on effect size, how many genes does this correspond to?
 
 ```{r histogram4}
-num_of_events_per_gene = significant_APA %>% group_by(Gene) %>% summarize(Gene_Name=Gene_Name, sig_events=n())
+num_of_events_per_gene = significant_APA %>% group_by(Gene) %>% summarize(Gene_Name=Gene_Name, sig_events=n()) %>% distinct()
 #also join this to the significant_APA list to replace num_events
 significant_APA = left_join(significant_APA, num_of_events_per_gene, by="Gene_Name") %>% relocate(sig_events, .after=Num_Events) %>% select(-Num_Events, -Gene.y) %>% distinct()
 colnames(significant_APA)[3]="Gene"
 
-ggplot(significant_APA, aes(x=sig_events)) + geom_histogram(binwidth=1,color="darkblue", fill="lightblue") + 
+ggplot(num_of_events_per_gene, aes(x=sig_events)) + geom_histogram(binwidth=1,color="darkblue", fill="lightblue") + 
   labs(title="Number of significant differential APA events per gene",
        subtitle="Based on expressed transcripts (TPM>1) with significant differential APA (P<0.05, q<0.05)",
          y="Number of genes",
          x="Number of significant differential APA events") + 
   stat_bin(aes(y=..count.., label=ifelse(..count..==0,"",..count..)), geom="text", vjust=-0.25, binwidth=1) 
 ```
+
 Other statistics:
 
 ```{r other_summary_stats}
@@ -276,7 +297,7 @@ other_stats
 ```
 
 ```{r export_raw_sig_DAPA}
-file_name = paste0(comparison[1], "_vs_", comparison[2], "_sig_dif_APA.csv")
+file_name = paste0(comparison[1], "_vs_", comparison[2], "_sig_APA.csv")
 export_sig_APA = significant_APA[,c(-15,-18)]
 write.csv(export_sig_APA, file = file_name)
 ```
@@ -290,20 +311,32 @@ effectsize_threshold = pipeline_yml$diff_apa$minimum_effect_size
 filtered_significant_APA = significant_APA %>% filter(diff_PAU_effectsize > effectsize_threshold)
 ```
 
-New histogram and update num_events
+New histogram and update num_events. We will call those which meet both statistical significance, and effectsize threshold 'sig2' and those which only meet statistical significance will be 'sig'
 
 ```{r histogram5}
-#we will call those which meet both statistical significance, and effectsize threshold 'sig2'
-#and those which only meet statistical significance will be 'sig'
-num_of_events_per_gene = filtered_significant_APA %>% group_by(Gene) %>% summarize(Gene_Name=Gene_Name, sig2_events=n())
+num_of_events_per_gene = filtered_significant_APA %>% group_by(Gene) %>% summarize(Gene_Name=Gene_Name, sig2_events=n()) %>% distinct
 #also join this to the significant_APA list to replace num_events
 filtered_significant_APA = left_join(filtered_significant_APA, num_of_events_per_gene, by="Gene_Name") %>% relocate(sig2_events, .after=sig_events) %>% select(-Gene.y) %>% distinct()
 colnames(filtered_significant_APA)[3]="Gene"
 
-ggplot(num_of_events_per_gene, aes(x=sig2_events)) + geom_histogram(binwidth=1,color="darkblue", fill="lightblue") + 
-  labs(title="Number of significant differential APA events per gene",
-       subtitle=paste0("Based on expressed transcripts (TPM>1) with significant differential APA (P<0.05, q<0.05), \n and significant effect size (>",effectsize_threshold,"%)"),
+max_bins = num_of_events_per_gene %>% select(sig2_events)
+max_bins = max_bins[2] %>% unlist() %>% max()
+
+ggplot(num_of_events_per_gene, aes(x=sig2_events)) + 
+  geom_histogram(binwidth=1,color="darkblue", fill="lightblue") + 
+  labs(title="Number of significant differential APA events per gene", 
+       subtitle=paste0("Based on expressed transcripts (TPM>1) with significant differential APA (P<0.05, q<0.05), \nand significant effect size (>",effectsize_threshold,"%)"),
          y="Number of genes",
-         x="Number of significant differential APA events") + 
-  stat_bin(aes(y=..count.., label=ifelse(..count..==0,"",..count..)), geom="text", vjust=2, binwidth=1) 
+         x="Number of significant differential APA events per gene") + 
+  stat_bin(aes(y=..count.., label=ifelse(..count..==0,"",..count..)), geom="text", vjust=-0.25, binwidth=1) + 
+        scale_x_continuous(breaks=seq(1,max_bins, by=1))
+```
+
+Export these significant events, arranged from lowest q val to highest (still significant)
+
+```{r}
+file_name = paste0(comparison[1], "_vs_", comparison[2], "_sig_APA_effectsize_filtered.csv")
+export_sig_APA_filtered = filtered_significant_APA[,c(-16,-19)]
+export_sig_APA_filtered = export_sig_APA_filtered %>% arrange(diff_PAU_qval)
+write.csv(export_sig_APA_filtered, file = file_name)
 ```
